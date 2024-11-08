@@ -28,8 +28,35 @@ yes_no_prompt() {
 }
 
 
+# Function to check if a package is installed
+is_package_installed() {
+    local package_name="$1"
 
-print_green "Restore a wordpress site with DB"
+    # Check for Debian-based systems
+    if command -v dpkg &> /dev/null; then
+        dpkg -l "$package_name" &> /dev/null
+        if [ $? -eq 0 ]; then
+            return 0
+        fi
+    fi
+
+    # Check for Red Hat-based systems
+    if command -v rpm &> /dev/null; then
+        rpm -q "$package_name" &> /dev/null
+        if [ $? -eq 0 ]; then
+            return 0
+        fi
+    fi
+
+    return 1
+}
+
+#----------------------------------------------------------
+#----------------------------------------------------------
+#----------------------------------------------------------
+
+
+print_green "Restore a wordpress site with database"
 
 print_green "Checking requirements"
 # Check root
@@ -39,6 +66,15 @@ if [[ $EUID -ne 0 ]]; then
   exit 1
 fi
 
+# Check PHP, MYSQL, PIGZ
+packages=("php" "mysql" "pigz")
+
+for package in "${packages[@]}"; do
+    if ! is_package_installed "$package"; then
+        echo "The package '$package' is not installed."
+        exit 1
+    fi
+done
 
 # Check services
 # --------------
@@ -57,6 +93,8 @@ print_green "mysql command OK"
 # Check webserver
 # ---------------
 webserver=""
+
+# TODO this only test if the webserver is installed WARNING both could be installed
 
 if which nginx > /dev/null 2>&1; then
   webserver="nginx"
@@ -163,7 +201,6 @@ fi
 db_file=$(find "${src_db_folder}"/*.sql)
 
 echo "$db_file"
-# TODO Check file extension
 
 # SRC Files folder and files
 # check folder
