@@ -79,6 +79,32 @@ is_unique() {
 	fi
 }
 
+get_wordpress_settings () {
+	local folder
+	folder=$1
+	if is_folder_exists "${folder}/www"; then
+		if is_file_exists "${folder}"/www/wp-config.php; then
+			wp_setting="${folder}/www/wp-config.php"
+			return 0
+		else
+			print_red "File wp-config.php not found in ${folder}/www/wp-config.php"
+			return 1
+		fi
+	elif is_folder_exists "${folder}/public"; then
+		if is_file_exists "${folder}"/public/wp-config.php; then
+			wp_setting="${folder}/www/wp-config.php"
+			return 0
+		else
+			print_red "File wp-config.php not found in ${folder}/public/wp-config.php"
+			return 1
+		fi
+	else
+		print_red "No wp-config.php not found in ${folder}/www or ${folder}/public"
+		return 1
+	fi
+}
+
+
 are_strings_the_same() {
 	local all_same
 	local base_string
@@ -199,7 +225,9 @@ src_folder=$1
 
 # Make sitename from src_path
 sitepath="${src_folder%/}"
+echo "Site path: ${sitepath}"
 sitename=$(basename "$sitepath")
+echo "Sitename: ${sitename}"
 
 # checks path
 # -----------
@@ -219,10 +247,14 @@ fi
 # ----------------------
 print_green "Checking wp-config.php"
 
-if ! is_file_exists "${src_folder}"/wp-config.php; then
-		print_red "File wp-config.php not found in ${src_folder}"
+
+wp_setting=''
+if ! get_wordpress_settings "${sitepath}"; then
+		print_red "File wp-config.php not found"
   	exit 1
 fi
+echo "wp-config.php found in ${wp_setting}"
+
 
 # Get webserver caddy or Nginx
 # ----------------------------
@@ -256,7 +288,7 @@ echo "webserver is ${webserver}"
 print_green "Getting database name"
 
 # get database name from wp-config.php
-db_name=$(grep DB_NAME "${src_folder}"/wp-config.php | tr "'" ':' | tr '"' ':' | cut -d: -f4)
+db_name=$(grep DB_NAME "${wp_setting}" | tr "'" ':' | tr '"' ':' | cut -d: -f4)
 echo "Database name is ${db_name}"
 
 # get webserver config file
@@ -316,9 +348,9 @@ fi
 
 # Check PHP, PIGZ
 # ---------------
-print_green "Checking packages php, pigz"
+print_green "Checking packages: pigz"
 
-packages=("php" "pigz")
+packages=("pigz")
 
 for package in "${packages[@]}"; do
     if ! is_package_installed "$package"; then
