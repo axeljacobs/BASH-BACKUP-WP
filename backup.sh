@@ -7,27 +7,6 @@ print_red() {
   echo -e "\e[31m$1\e[0m"
 }
 
-yes_no_prompt() {
-  local prompt_message=$1
-  local user_input
-
-  while true; do
-    read -p "$prompt_message (y/n): " user_input
-    case $user_input in
-      [Yy]* )
-        return 0
-        ;;
-      [Nn]* )
-        return 1
-        ;;
-      * )
-        echo "Please answer yes or no (y/n)."
-        ;;
-    esac
-  done
-}
-
-
 # Function to check if a package is installed
 is_package_installed() {
     local package_name="$1"
@@ -214,7 +193,12 @@ echo "Database name is ${db_name}"
 webserver_conf_file=""
 sitepath="${src_folder%/}"
 sitename=$(echo "$sitepath" | awk -F'/' '{ print $(NF-1) }')
-if search_webserver_conf_files "$webserver" "$sitename" ""
+if ! search_webserver_conf_files "$webserver" "$sitename"; then
+	print_red "No single $webserver configuration found"
+	exit 1
+fi
+echo "Found $webserver configuration for $sitename in file: $webserver_conf_file"
+
 
 # Check root
 #------------
