@@ -92,7 +92,7 @@ get_wordpress_settings () {
 		fi
 	elif is_folder_exists "${folder}/public"; then
 		if is_file_exists "${folder}"/public/wp-config.php; then
-			wp_setting="${folder}/www/wp-config.php"
+			wp_setting="${folder}/public/wp-config.php"
 			return 0
 		else
 			print_red "File wp-config.php not found in ${folder}/public/wp-config.php"
@@ -377,3 +377,10 @@ fi
 
 
 print_green "Backup a wordpress site with database in "
+print_green "Setup backup destination folder"
+today=$(date +"%Y-%m-%d")
+now=$(date +"%Y-%m-%d_%H%M%S")
+mkdir -p "${sitepath}/backups/${today}"
+wp_files_folder=$(dirname "$wp_setting")
+print_green "Backing usefull config files"
+tar -I pigz -cpf "${sitepath}/backups/${today}/${now}_${sitename}_files.tar.gz" -C "${wp_files_folder}" .
