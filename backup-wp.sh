@@ -108,6 +108,7 @@ get_wordpress_settings () {
 are_strings_the_same() {
 	local all_same
 	local base_string
+	# shellcheck disable=SC2206
 	local array=($1)
 	all_same=true
 	base_string="${array[0]}"
@@ -181,8 +182,11 @@ search_php_pool_conf_files() {
 	all_same=true
 
 	#get pid of process php-fpm pool SITENAME
+	# shellcheck disable=SC1083
+	# shellcheck disable=SC2009
 	processes=$(ps -aux | grep "php-fpm: pool $search_string" | grep -v grep | awk {'print $2'})
 	if [ -n "$processes" ]; then
+		# shellcheck disable=SC2206
 		pids=($processes)
 		base_parent_pid=$(awk '{print$4}' /proc/"${pids[0]}"/stat)
 		for pid in "${pids[@]}"; do

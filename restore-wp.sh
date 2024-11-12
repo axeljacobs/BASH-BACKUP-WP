@@ -12,6 +12,7 @@ yes_no_prompt() {
   local user_input
 
   while true; do
+    # shellcheck disable=SC2162
     read -p "$prompt_message (y/n): " user_input
     case $user_input in
       [Yy]* )
@@ -35,6 +36,7 @@ is_package_installed() {
     # Check for Debian-based systems
     if command -v dpkg &> /dev/null; then
         dpkg -l "$package_name" &> /dev/null
+        # shellcheck disable=SC2181
         if [ $? -eq 0 ]; then
             return 0
         fi
@@ -43,6 +45,7 @@ is_package_installed() {
     # Check for Red Hat-based systems
     if command -v rpm &> /dev/null; then
         rpm -q "$package_name" &> /dev/null
+        # shellcheck disable=SC2181
         if [ $? -eq 0 ]; then
             return 0
         fi
@@ -264,6 +267,7 @@ if [ "$db" != "" ]; then
   # mysqladmin -u username -p"password" create library
   # $ mysql -u dbUsername -p"dbPassword" oldDatabase -sNe 'show tables' | while read table; do mysql -u dbUsername -p"dbPassword" -sNe "RENAME TABLE oldDatabase.$table TO newDatabase.$table"; done
   mysql -e "CREATE DATABASE \`$bck_db_name\`;"
+  # shellcheck disable=SC2162
   mysql "$db_name" -sNe 'show tables' | while read table; do mysql -sNe "RENAME TABLE \`$db_name\`.$table TO \`$bck_db_name\`.$table"; done
 	mysql -e "DROP DATABASE \`$db_name\`;"
 else
