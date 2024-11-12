@@ -354,8 +354,8 @@ packages=("pigz")
 
 for package in "${packages[@]}"; do
     if ! is_package_installed "$package"; then
-        echo "The package '$package' is not installed. Please install it..."
-        exit 1
+        echo "The package '$package' is not installed. Please installing it..."
+        apt install -y "${package}"
     fi
 done
 
