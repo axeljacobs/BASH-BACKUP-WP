@@ -109,7 +109,7 @@ search_webserver_conf_files() {
 			if ! is_folder_exists "$directory"; then
 				print_red "Searching ${search_string} in '${directory}' but folder does not exist!"
 			fi
-			grep_result=$(grep -r "$search_string" --include="*.caddy" --include="Caddyfile" "$directory" | cut -d: -f1 | sort)
+			grep_result=$(grep -r "$search_string" --include="*.caddy" --include="Caddyfile" "$directory" | cut -d: -f1 | sort | uniq)
 			if are_strings_the_same "$grep_result"; then
 				webserver_conf_file=${grep_result[0]}
 				return 0
@@ -232,11 +232,11 @@ if [[ $EUID -ne 0 ]]; then
   exit 1
 fi
 
-# Check PHP, MYSQL, PIGZ
-# ----------------------
-print_green "Checking packages"
+# Check PHP, PIGZ
+# ---------------
+print_green "Checking packages php, pigz"
 
-packages=("php" "mysql" "pigz")
+packages=("php" "pigz")
 
 for package in "${packages[@]}"; do
     if ! is_package_installed "$package"; then
@@ -245,19 +245,14 @@ for package in "${packages[@]}"; do
     fi
 done
 
-# Check services
-# --------------
-
-# Check if Mariadb commands for restoring the database are available
+# Check if Mariadb/Mysql commands for restoring the database are available
 # ------------------------------------------------------------------
 print_green "Checking mysql command"
  if ! [ -x "$(command -v mysql)" ]; then
-    print_red "ERROR: MySQL/MariaDB not installed (command mysql not found)."
-    print_red "ERROR: No restore of database possible!"
-    print_red "Cancel restore"
+    print_red "MySQL/MariaDB seems not to be installed (command mysql not found)."
     exit 1
 fi
-print_green "mysql command OK"
+
 
 print_green "Backup a wordpress site with database in "
 
