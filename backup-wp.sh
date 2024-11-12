@@ -14,6 +14,7 @@ is_package_installed() {
     # Check for Debian-based systems
     if command -v dpkg &> /dev/null; then
         dpkg -l "$package_name" &> /dev/null
+        # shellcheck disable=SC2181
         if [ $? -eq 0 ]; then
             return 0
         fi
@@ -22,6 +23,7 @@ is_package_installed() {
     # Check for Red Hat-based systems
     if command -v rpm &> /dev/null; then
         rpm -q "$package_name" &> /dev/null
+        # shellcheck disable=SC2181
         if [ $? -eq 0 ]; then
             return 0
         fi
@@ -79,12 +81,12 @@ is_unique() {
 
 are_strings_the_same() {
 	local all_same
-	local strings=$1
 	local base_string
-
+	local array=($1)
 	all_same=true
-	base_string="${strings[0]}"
-	for str in "${strings[@]}"; do
+	base_string="${array[0]}"
+	for str in "${array[@]}"; do
+			echo "Test ${str} against ${base_string}"
       if [[ "$str" != "$base_string" ]]; then
           all_same=false
           break
@@ -110,11 +112,16 @@ search_webserver_conf_files() {
 				print_red "Searching ${search_string} in '${directory}' but folder does not exist!"
 			fi
 			grep_result=$(grep -r "$search_string" --include="*.caddy" --include="Caddyfile" "$directory" | cut -d: -f1 | sort | uniq)
-			if are_strings_the_same "$grep_result"; then
-				webserver_conf_file=${grep_result[0]}
-				return 0
+			if [ -n "$grep_result" ]; then
+				if are_strings_the_same "$grep_result"; then
+					webserver_conf_file=${grep_result}
+					return 0
+				else
+					print_red "Multiple caddy conf files found:\n${grep_result}"
+					exit 1
+				fi
 			else
-				print_red "Multiple caddy conf files found:\n${grep_result}"
+				print_red "No match found!"
 				exit 1
 			fi
 		fi
@@ -126,11 +133,12 @@ search_webserver_conf_files() {
 				print_red "Searching ${search_string} in '${directory}' but folder does not exist!"
 			fi
 			grep_result=$(grep -r "$search_string" --include="*.conf" "$directory" | cut -d: -f1 | sort)
+
 			if are_strings_the_same "$grep_result"; then
 				webserver_conf_file=${grep_result[0]}
 				return 0
 			else
-				print_red "Multiple nginx conf files found: ${grep_result}"
+				print_red "Multiple nginx conf found in files: ${grep_result}"
 				exit 1
 			fi
 		fi
