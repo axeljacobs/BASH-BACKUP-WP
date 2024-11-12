@@ -180,10 +180,10 @@ search_php_pool_conf_files() {
 	local all_same
 	all_same=true
 
-	#grep_result=$(ps -aux | grep "php-fpm: pool $search_string" | grep -v grep)
-	grep_result=$(ps -aux | grep "php-fpm: pool $search_string" | grep -v grep | awk {'print $2'})
-	if [ -n "$grep_result" ]; then
-		pids=($grep_result)
+	#get pid of process php-fpm pool SITENAME
+	processes=$(ps -aux | grep "php-fpm: pool $search_string" | grep -v grep | awk {'print $2'})
+	if [ -n "$processes" ]; then
+		pids=($processes)
 		base_parent_pid=$(awk '{print$4}' /proc/"${pids[0]}"/stat)
 		for pid in "${pids[@]}"; do
 			ppid=$(awk '{print$4}' /proc/"${pid}"/stat)
@@ -199,12 +199,21 @@ search_php_pool_conf_files() {
 	else
 		return 1
 	fi
-	php_pool_conf_file=$(cat /proc/"${ppid}"/cmdline | sed -n 's/.*(\(.*\)).*/\1/p')
-#	php_pool_conf_file=$(sed -n 's/.*(\(.*\)).*/\1/p' < /proc/${base_parent_pid/cmdline )
-	php_pool_conf_file="${php_pool_conf_file#"("}"
-	php_pool_conf_file="${php_pool_conf_file%")"}"
-	return 0
-
+	php_version=$(cat /proc/"${ppid}"/comm)
+	php_version="${php_version#php-fpm}"
+	grep_result=$(grep -r "$search_string" --include="*.conf" "/etc/php/${php_version}/fpm/pool.d" | cut -d: -f1 | sort | uniq)
+  		if [ -n "$grep_result" ]; then
+  			if are_strings_the_same "$grep_result"; then
+  				php_pool_conf_file=${grep_result}
+  				return 0
+  			else
+  				print_red "Multiple php-${php_version}-fpm pool conf files found:\n${grep_result}"
+  				exit 1
+  			fi
+  		else
+  			print_red "No match found!"
+  			exit 1
+  		fi
 }
 
 # -------------------------------------------------------------
@@ -318,7 +327,6 @@ php_pool_conf_file=""
 if ! search_php_pool_conf_files "$sitename"; then
 	# if not found and sitename is www..... search for sitename without www.
 	if echo "$sitename" | grep -q "www"; then
-		echo "$sitename"
 		sitename="${sitename#www.}"
 		if ! search_php_pool_conf_files "$sitename"; then
 			print_red "No single php pool config found (tried ${sitename})"
