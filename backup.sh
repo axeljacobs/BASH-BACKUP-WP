@@ -86,7 +86,7 @@ search_webserver_conf_files() {
     local grep_result
 
 		if [ "$webserver" = "caddy" ]; then
-			$directory="/etc/caddy"
+			directory="/etc/caddy"
 			if ! is_folder_exists "$directory"; then
 				print_red "Searching ${search_string} in '${directory}' but folder does not exist!"
 			fi
@@ -102,7 +102,7 @@ search_webserver_conf_files() {
 
 		# TODO Nginx check this
 		if [ "$webserver" = "nginx" ]; then
-			$directory="/etc/nginx/sites-enabled"
+			directory="/etc/nginx/sites-enabled"
 			if ! is_folder_exists "$directory"; then
 				print_red "Searching ${search_string} in '${directory}' but folder does not exist!"
 			fi
