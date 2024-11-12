@@ -378,9 +378,20 @@ fi
 
 print_green "Backup a wordpress site with database in "
 print_green "Setup backup destination folder"
+
 today=$(date +"%Y-%m-%d")
 now=$(date +"%Y-%m-%d_%H%M%S")
+
 mkdir -p "${sitepath}/backups/${today}"
 wp_files_folder=$(dirname "$wp_setting")
-print_green "Backing usefull config files"
+
+print_green "Backing wordpress ${sitename} files"
 tar -I pigz -cpf "${sitepath}/backups/${today}/${now}_${sitename}_files.tar.gz" -C "${wp_files_folder}" .
+
+print_green "Backing wordpress ${sitename} php and webserver config"
+tar -I pigz -cpf "${sitepath}/backups/${today}/${now}_${sitename}_config.tar.gz" "$php_pool_conf_file" "$webserver_conf_file"
+
+print_green "Backing ${db_name} database"
+mysqldump --single-transaction "${db_name}" > "${sitepath}/backups/${today}/${now}_${sitename}_database.sql"
+
+print_green "DONE"
