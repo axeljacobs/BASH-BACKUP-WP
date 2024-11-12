@@ -101,52 +101,85 @@ are_strings_the_same() {
 
 # Function to search for a string and get unique files containing the string
 search_webserver_conf_files() {
-    local webserver="$1"
-    local search_string="$2"
-    local directory
-    local grep_result
+	local webserver="$1"
+	local search_string="$2"
+	local directory
+	local grep_result
 
-		if [ "$webserver" = "caddy" ]; then
-			directory="/etc/caddy"
-			if ! is_folder_exists "$directory"; then
-				print_red "Searching ${search_string} in '${directory}' but folder does not exist!"
-			fi
-			grep_result=$(grep -r "$search_string" --include="*.caddy" --include="Caddyfile" "$directory" | cut -d: -f1 | sort | uniq)
-			if [ -n "$grep_result" ]; then
-				if are_strings_the_same "$grep_result"; then
-					webserver_conf_file=${grep_result}
-					return 0
-				else
-					print_red "Multiple caddy conf files found:\n${grep_result}"
-					exit 1
-				fi
+	if [ "$webserver" = "caddy" ]; then
+		directory="/etc/caddy"
+		if ! is_folder_exists "$directory"; then
+			print_red "Searching ${search_string} in '${directory}' but folder does not exist!"
+		fi
+		grep_result=$(grep -r "$search_string" --include="*.caddy" --include="Caddyfile" "$directory" | cut -d: -f1 | sort | uniq)
+		if [ -n "$grep_result" ]; then
+			if are_strings_the_same "$grep_result"; then
+				webserver_conf_file=${grep_result}
+				return 0
 			else
-				print_red "No match found!"
+				print_red "Multiple caddy conf files found:\n${grep_result}"
 				exit 1
 			fi
+		else
+			print_red "No match found!"
+			exit 1
 		fi
+	fi
 
-		if [ "$webserver" = "nginx" ]; then
-			directory="/etc/nginx/sites-enabled"
-			if ! is_folder_exists "$directory"; then
-				print_red "Searching ${search_string} in '${directory}' but folder does not exist!"
-			fi
-			grep_result=$(grep -r "$search_string" --include="*.conf" "$directory" | cut -d: -f1 | sort | uniq)
-			if [ -n "$grep_result" ]; then
-				if are_strings_the_same "$grep_result"; then
-					webserver_conf_file=${grep_result}
-					return 0
-				else
-					print_red "Multiple nginx conf files found:\n${grep_result}"
-					exit 1
-				fi
+	if [ "$webserver" = "nginx" ]; then
+		directory="/etc/nginx/sites-enabled"
+		if ! is_folder_exists "$directory"; then
+			print_red "Searching ${search_string} in '${directory}' but folder does not exist!"
+		fi
+		grep_result=$(grep -r "$search_string" --include="*.conf" "$directory" | cut -d: -f1 | sort | uniq)
+		if [ -n "$grep_result" ]; then
+			if are_strings_the_same "$grep_result"; then
+				webserver_conf_file=${grep_result}
+				return 0
 			else
-				print_red "No match found!"
+				print_red "Multiple nginx conf files found:\n${grep_result}"
 				exit 1
 			fi
+		else
+			print_red "No match found!"
+			exit 1
 		fi
+	fi
 }
 
+search_php_pool_conf_files() {
+	local search_string="$1"
+	local grep_result
+	local pids
+	local all_same
+	all_same=true
+
+	#grep_result=$(ps -aux | grep "php-fpm: pool $search_string" | grep -v grep)
+	grep_result=$(ps -aux | grep "php-fpm: pool $search_string" | grep -v grep | awk {'print $2'})
+	if [ -n "$grep_result" ]; then
+		pids=($grep_result)
+		base_parent_pid=$(awk '{print$4}' /proc/"${pids[0]}"/stat)
+		for pid in "${pids[@]}"; do
+			ppid=$(awk '{print$4}' /proc/"${pid}"/stat)
+			if [[ "${ppid}" != "${base_parent_pid}" ]]; then
+				all_same=false
+				break
+			fi
+		done
+		if [ "$all_same" = false ]; then
+				print_red "Multiple process containing ${search_string} with differents parant process pid"
+				return 1
+		fi
+	else
+		return 1
+	fi
+	php_pool_conf_file=$(cat /proc/"${ppid}"/cmdline | sed -n 's/.*(\(.*\)).*/\1/p')
+#	php_pool_conf_file=$(sed -n 's/.*(\(.*\)).*/\1/p' < /proc/${base_parent_pid/cmdline )
+	php_pool_conf_file="${php_pool_conf_file#"("}"
+	php_pool_conf_file="${php_pool_conf_file%")"}"
+	return 0
+
+}
 
 # -------------------------------------------------------------
 # -------------------------------------------------------------
@@ -231,8 +264,30 @@ if ! search_webserver_conf_files "$webserver" "$sitename"; then
 	print_red "No single $webserver configuration found"
 	exit 1
 fi
+
+if [ -z "${webserver_conf_file}" ]; then
+	print_red "No webserver config found"
+	exit 1
+fi
+
 echo "Found $webserver configuration for $sitename in file: $webserver_conf_file"
 
+# get php-pool config file
+# ------------------------
+print_green "Getting php pool config"
+
+php_pool_conf_file=""
+if ! search_php_pool_conf_files "$sitename"; then
+	print_red "No single php pool config found"
+	exit 1
+fi
+
+if [ -z "${php_pool_conf_file}" ]; then
+	print_red "No php pool config found"
+	exit 1
+fi
+
+echo "Found php pool configuration for $sitename in file: $php_pool_conf_file"
 
 # Check root
 #------------
@@ -266,6 +321,3 @@ fi
 
 
 print_green "Backup a wordpress site with database in "
-
-
-
