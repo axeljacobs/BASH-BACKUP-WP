@@ -86,7 +86,7 @@ are_strings_the_same() {
 	all_same=true
 	base_string="${array[0]}"
 	for str in "${array[@]}"; do
-			echo "Test ${str} against ${base_string}"
+#			echo "Test ${str} against ${base_string}"
       if [[ "$str" != "$base_string" ]]; then
           all_same=false
           break
@@ -126,19 +126,22 @@ search_webserver_conf_files() {
 			fi
 		fi
 
-		# TODO Nginx check this
 		if [ "$webserver" = "nginx" ]; then
 			directory="/etc/nginx/sites-enabled"
 			if ! is_folder_exists "$directory"; then
 				print_red "Searching ${search_string} in '${directory}' but folder does not exist!"
 			fi
-			grep_result=$(grep -r "$search_string" --include="*.conf" "$directory" | cut -d: -f1 | sort)
-
-			if are_strings_the_same "$grep_result"; then
-				webserver_conf_file=${grep_result[0]}
-				return 0
+			grep_result=$(grep -r "$search_string" --include="*.conf" "$directory" | cut -d: -f1 | sort | uniq)
+			if [ -n "$grep_result" ]; then
+				if are_strings_the_same "$grep_result"; then
+					webserver_conf_file=${grep_result}
+					return 0
+				else
+					print_red "Multiple nginx conf files found:\n${grep_result}"
+					exit 1
+				fi
 			else
-				print_red "Multiple nginx conf found in files: ${grep_result}"
+				print_red "No match found!"
 				exit 1
 			fi
 		fi
