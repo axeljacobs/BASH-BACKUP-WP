@@ -77,12 +77,31 @@ is_unique() {
 	fi
 }
 
+are_strings_the_same() {
+	local all_same
+	local strings=$1
+	local base_string
+
+	all_same=true
+	base_string="${strings[0]}"
+	for str in "${strings[@]}"; do
+      if [[ "$str" != "$base_string" ]]; then
+          all_same=false
+          break
+      fi
+  done
+	if [ "$all_same" = true ]; then
+      return 0
+  else
+      return 1
+  fi
+}
 
 # Function to search for a string and get unique files containing the string
 search_webserver_conf_files() {
     local webserver="$1"
     local search_string="$2"
-    local $directory
+    local directory
     local grep_result
 
 		if [ "$webserver" = "caddy" ]; then
@@ -91,11 +110,11 @@ search_webserver_conf_files() {
 				print_red "Searching ${search_string} in '${directory}' but folder does not exist!"
 			fi
 			grep_result=$(grep -r "$search_string" --include="*.caddy" --include="Caddyfile" "$directory" | cut -d: -f1 | sort)
-			if is_unique "$grep_result"; then
-				webserver_conf_file=$grep_result
+			if are_strings_the_same "$grep_result"; then
+				webserver_conf_file=${grep_result[0]}
 				return 0
 			else
-				print_red "Multiple caddy conf files found: ${grep_result}"
+				print_red "Multiple caddy conf files found:\n${grep_result}"
 				exit 1
 			fi
 		fi
@@ -107,8 +126,8 @@ search_webserver_conf_files() {
 				print_red "Searching ${search_string} in '${directory}' but folder does not exist!"
 			fi
 			grep_result=$(grep -r "$search_string" --include="*.conf" "$directory" | cut -d: -f1 | sort)
-			if is_unique "$grep_result"; then
-				webserver_conf_file=$grep_result
+			if are_strings_the_same "$grep_result"; then
+				webserver_conf_file=${grep_result[0]}
 				return 0
 			else
 				print_red "Multiple nginx conf files found: ${grep_result}"
@@ -126,22 +145,20 @@ print_green "Testing requirements..."
 
 # Get first positional argument $1
 if [ $# -ne 1 ]; then
-    echo "Usage: $0 path/to/the/wordpress/site"
+    print_red "Usage: $0 path/to/the/wordpress/site"
     exit 1
 fi
 
 src_folder=$1
 
-# check path exists
-# -----------------
+# checks path
+# -----------
+print_green "Checking provided path"
 
 if ! is_folder_exists "${src_folder}"; then
 	print_red "Folder ${src_folder} does not exists"
 	exit 1
 fi
-
-# check path is not empty
-# -----------------------
 
 if is_folder_empty "${src_folder}"; then
 	print_red "Folder ${src_folder} is empty"
@@ -150,6 +167,7 @@ fi
 
 # check wp-config exists
 # ----------------------
+print_green "Checking wp-config.php"
 
 if ! is_file_exists "${src_folder}"/wp-config.php; then
 		print_red "File wp-config.php not found in ${src_folder}"
@@ -161,6 +179,7 @@ fi
 
 # Check webserver
 # ---------------
+print_green "Getting webserver"
 webserver=""
 
 if which nginx > /dev/null 2>&1; then
@@ -180,16 +199,20 @@ if [[ "$webserver" != "nginx" && "$webserver" != "caddy" ]]; then
   exit 1
 fi
 
-print_green "WEBSERVER is ${webserver}"
+echo "webserver is ${webserver}"
 
 # Get database name, site name, config files (php, webserver)
-# ----------------------------
+# -----------------------------------------------------------
+print_green "Getting database name"
 
 # get database name from wp-config.php
 db_name=$(grep DB_NAME "${src_folder}"/wp-config.php | tr "'" ':' | tr '"' ':' | cut -d: -f4)
 echo "Database name is ${db_name}"
 
 # get webserver config file
+# -------------------------
+print_green "Getting webserver config"
+
 webserver_conf_file=""
 sitepath="${src_folder%/}"
 sitename=$(echo "$sitepath" | awk -F'/' '{ print $(NF-1) }')
@@ -202,17 +225,22 @@ echo "Found $webserver configuration for $sitename in file: $webserver_conf_file
 
 # Check root
 #------------
+print_green "Checking running user is root"
+
 if [[ $EUID -ne 0 ]]; then
   print_red "This script must be run as root."
   exit 1
 fi
 
 # Check PHP, MYSQL, PIGZ
+# ----------------------
+print_green "Checking packages"
+
 packages=("php" "mysql" "pigz")
 
 for package in "${packages[@]}"; do
     if ! is_package_installed "$package"; then
-        echo "The package '$package' is not installed."
+        echo "The package '$package' is not installed. Please install it..."
         exit 1
     fi
 done
@@ -222,7 +250,7 @@ done
 
 # Check if Mariadb commands for restoring the database are available
 # ------------------------------------------------------------------
-print_green "Check mysql command"
+print_green "Checking mysql command"
  if ! [ -x "$(command -v mysql)" ]; then
     print_red "ERROR: MySQL/MariaDB not installed (command mysql not found)."
     print_red "ERROR: No restore of database possible!"
