@@ -185,6 +185,8 @@ search_php_pool_conf_files() {
 # -------------------------------------------------------------
 # -------------------------------------------------------------
 
+
+
 print_green "Testing requirements..."
 
 # Get first positional argument $1
@@ -194,6 +196,10 @@ if [ $# -ne 1 ]; then
 fi
 
 src_folder=$1
+
+# Make sitename from src_path
+sitepath="${src_folder%/}"
+sitename=$(basename "$sitepath")
 
 # checks path
 # -----------
@@ -258,8 +264,7 @@ echo "Database name is ${db_name}"
 print_green "Getting webserver config"
 
 webserver_conf_file=""
-sitepath="${src_folder%/}"
-sitename=$(echo "$sitepath" | awk -F'/' '{ print $(NF-1) }')
+
 if ! search_webserver_conf_files "$webserver" "$sitename"; then
 	print_red "No single $webserver configuration found"
 	exit 1
@@ -277,9 +282,20 @@ echo "Found $webserver configuration for $sitename in file: $webserver_conf_file
 print_green "Getting php pool config"
 
 php_pool_conf_file=""
+# search for sitename in php-fpm files
 if ! search_php_pool_conf_files "$sitename"; then
-	print_red "No single php pool config found"
-	exit 1
+	# if not found and sitename is www..... search for sitename without www.
+	if echo "$sitename" | grep -q "www"; then
+		echo "$sitename"
+		sitename="${sitename#www.}"
+		if ! search_php_pool_conf_files "$sitename"; then
+			print_red "No single php pool config found (tried ${sitename})"
+			exit 1
+		fi
+	else
+		print_red "No single php pool config found for ${sitename}"
+		exit 1
+	fi
 fi
 
 if [ -z "${php_pool_conf_file}" ]; then
